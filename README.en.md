@@ -76,11 +76,11 @@ npm run typecheck    # TypeScript check
 npm test             # charting regression tests
 ```
 
-**No API key is needed for charting.** The open-source version contains **no backend routes**: AI interpretation (`/api/interpret`) and compatibility analysis (`/api/heming`) return 404 until you implement them yourself.
+Charting runs in the browser without an API key. For AI chart interpretation (`/api/interpret`), set `DEEPSEEK_API_KEY` in `.env.local` and restart the server. Open `/chart`, generate a chart, then select a topic or ask a question. See [`.env.example`](./.env.example) for compatible provider settings. Interpretation sends chart details and questions to the configured provider. Add access control and rate limiting before deploying publicly. AI compatibility analysis (`/api/heming`) requires a separate implementation.
 
 ## What is not included
 
-The interpretation database (`lib/ziwei/db-analysis.ts` is a placeholder), AI prompts, all `/api/*` backend routes, user accounts, payments, and deployment configuration.
+The interpretation database (`lib/ziwei/db-analysis.ts` is a placeholder), the hosted site's AI prompts and backend implementation, user accounts, payments, and deployment configuration.
 
 ## Interpretation dataset v4.0 (674,976 charts × 13 topics, 2026-10-15)
 

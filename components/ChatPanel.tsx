@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ZiweiChart } from '@/lib/ziwei/types';
+import { streamInterpretation } from '@/lib/interpret/client';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -25,13 +26,14 @@ export default function ChatPanel({ chart }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, error]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading) return;
@@ -39,52 +41,17 @@ export default function ChatPanel({ chart }: ChatPanelProps) {
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setLoading(true);
+    setError('');
 
+    let receivedText = false;
     try {
-      const res = await fetch('/api/interpret', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chart, messages: [...messages, userMsg] }),
+      await streamInterpretation(chart, [...messages, userMsg], content => {
+        const replace = receivedText;
+        receivedText = true;
+        setMessages(prev => [...(replace ? prev.slice(0, -1) : prev), { role: 'assistant', content }]);
       });
-
-      if (res.status === 404) throw new Error('api-missing');
-      if (!res.ok) throw new Error('请求失败');
-      if (!res.body) throw new Error('无响应流');
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let assistantText = '';
-
-      setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') break;
-            try {
-              const parsed = JSON.parse(data);
-              const delta = parsed.delta?.text ?? '';
-              assistantText += delta;
-              setMessages(prev => {
-                const updated = [...prev];
-                updated[updated.length - 1] = { role: 'assistant', content: assistantText };
-                return updated;
-              });
-            } catch { /* skip */ }
-          }
-        }
-      }
     } catch (e) {
-      const missing = e instanceof Error && e.message === 'api-missing';
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: missing ? '开源版不含 AI 解读接口（/api/interpret），需要你自己实现后才能用，详见 README「快速开始」。排盘本身不需要任何 API Key。' : '解读失败，请检查API配置或稍后重试。',
-      }]);
+      setError(e instanceof Error ? e.message : '解读失败，请稍后重试。');
     } finally {
       setLoading(false);
     }
@@ -143,6 +110,8 @@ export default function ChatPanel({ chart }: ChatPanelProps) {
             </motion.div>
           ))}
         </AnimatePresence>
+        {loading && messages.at(-1)?.role === 'user' && <p role="status" className="text-xs">AI 解读生成中…</p>}
+        {error && <p role="alert" className="text-xs text-red-400">{error}</p>}
       </div>
 
       {/* 预设问题 */}

@@ -67,7 +67,7 @@ export default function ChartPage() {
         }}
       >
         <ChartBoard chart={chart} onPalaceSelect={setSelectedPalace} />
-        <InsightPanel chart={chart} selectedPalace={selectedPalace} />
+        <InsightPanel chart={chart} selectedPalace={selectedPalace} liunianYear={liunianYear} />
       </div>
     </main>
   );
